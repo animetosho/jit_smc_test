@@ -6,6 +6,7 @@
 #include <x86intrin.h>
 
 // compile with `cc -g -std=gnu99 -O3 -march=native -o test test.c jump.s`
+// or on systems which need librt: `cc -g -std=gnu99 -O3 -march=native -o test test.c jump.s -lrt`
 
 /**************************************/
 // boiler plate stuff
@@ -18,6 +19,7 @@ const int TRIALS = 10;
 #define TEST_TRIALS 1
 const int CODE_SIZE = 1024;
 
+// aliased memory code adapted from https://nullprogram.com/blog/2016/04/10/
 #if defined(_WINDOWS) || defined(__WINDOWS__) || defined(_WIN32) || defined(_WIN64)
 # include <windows.h>
 static __inline__ void* jit_alloc(size_t len) {
@@ -26,13 +28,69 @@ static __inline__ void* jit_alloc(size_t len) {
 static __inline__ void jit_free(void* mem, size_t len) {
 	VirtualFree(mem, 0, MEM_RELEASE);
 }
+
+static __inline__ void jit_alloc_wx_alias(size_t len, void** wmem, void** xmem) {
+	HANDLE m = CreateFileMapping(INVALID_HANDLE_VALUE, NULL, PAGE_EXECUTE_READWRITE, 0, len, NULL);
+	if (m == NULL) {
+		*wmem = NULL; *xmem = NULL;
+		return;
+	}
+	*wmem = MapViewOfFile(m, FILE_MAP_READ | FILE_MAP_WRITE, 0, 0, len);
+	*xmem = MapViewOfFile(m, FILE_MAP_READ | FILE_MAP_EXECUTE, 0, 0, len);
+	if(!*wmem || !*xmem) {
+		if(*wmem) UnmapViewOfFile(*wmem);
+		if(*xmem) UnmapViewOfFile(*xmem);
+		*wmem = NULL; *xmem = NULL;
+	}
+	CloseHandle(m);
+}
+static __inline__ void jit_free_wx_alias(size_t len, void* wmem, void* xmem) {
+	UnmapViewOfFile(wmem);
+	UnmapViewOfFile(xmem);
+	(void)len;
+}
 #else
+//# define _POSIX_C_SOURCE 200112L // ftruncate()
 # include <sys/mman.h>
 static __inline__ void* jit_alloc(size_t len) {
 	return mmap(NULL, len, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_PRIVATE | MAP_ANON, -1, 0);
 }
 static __inline__ void jit_free(void* mem, size_t len) {
 	munmap(mem, len);
+}
+
+
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/stat.h>
+
+static __inline__ void jit_alloc_wx_alias(size_t len, void** wmem, void** xmem) {
+	char path[128];
+	snprintf(path, sizeof(path), "/%s(%lu)", __FUNCTION__, (long)getpid());
+	int fd = shm_open(path, O_RDWR | O_CREAT | O_EXCL, 0700);
+	if (fd == -1) {
+		*wmem = NULL; *xmem = NULL;
+		return;
+	}
+	shm_unlink(path);
+	if (ftruncate(fd, len) == -1) {
+		close(fd);
+		*wmem = NULL; *xmem = NULL;
+		return;
+	}
+	
+	*wmem = mmap(NULL, len, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+	*xmem = mmap(NULL, len, PROT_READ | PROT_EXEC, MAP_SHARED, fd, 0);
+	if(!*wmem || !*xmem) {
+		if(*wmem) munmap(*wmem, len);
+		if(*xmem) munmap(*xmem, len);
+		*wmem = NULL; *xmem = NULL;
+	}
+	close(fd);
+}
+static __inline__ void jit_free_wx_alias(size_t len, void* wmem, void* xmem) {
+	munmap(wmem, len);
+	munmap(xmem, len);
 }
 #endif
 
@@ -49,6 +107,10 @@ static __inline__ void jit_free(void* mem, size_t len) {
 # define ALIGN_FREE free
 #endif
 
+
+typedef struct {
+	void* wmem; void* xmem;
+} jit_wx_pair;
 
 static __inline__ uint64_t rdtsc() {
 #ifdef _MSC_VER
@@ -551,7 +613,17 @@ static void jit_serialize(void* dst) {
 	((jitfunc_t)dst)();
 }
 
-// TODO: test multiple virtual mappings to same physical address?
+// write and execute from different virtual addresses, mapped to the same physical page
+static void jit_dual_mapping(void* dst) {
+	jit_wx_pair* pair = (jit_wx_pair*)dst;
+	write_code(pair->wmem, 0);
+	// serialize to synchronize data between two mappings
+	int id[4];
+	_cpuid(id, 1);
+	volatile int unused = id[0];
+	
+	((jitfunc_t)pair->xmem)();
+}
 
 
 int main(void) {
@@ -567,6 +639,14 @@ int main(void) {
 			return 1;
 		}
 		dst[i] = region;
+	}
+	
+	
+	jit_wx_pair wx_pair = {0};
+	jit_alloc_wx_alias(CODE_SIZE, &wx_pair.wmem, &wx_pair.xmem);
+	if(!wx_pair.wmem) {
+		printf("Failed to allocate shared page\n");
+		return 1;
 	}
 	
 	jit_only_init();
@@ -653,11 +733,14 @@ int main(void) {
 		DO_TIME_TEST(jit_jmp32k_unalign, dst[0]);
 		DO_TIME_TEST(jit_mfence, dst[0]);
 		DO_TIME_TEST(jit_serialize, dst[0]);
+		DO_TIME_TEST(jit_dual_mapping, &wx_pair);
 		DO_TIME_TEST(jit_realloc, dst[0]);
 	}
 	
 	for(int i=0; i<NUM_REGIONS; i++)
 		jit_free(dst[i], CODE_SIZE);
+	
+	jit_free_wx_alias(CODE_SIZE, wx_pair.wmem, wx_pair.xmem);
 	
 	return 0;
 }

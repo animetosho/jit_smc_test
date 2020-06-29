@@ -43,5 +43,6 @@ It’s best to look at the code to see what is done, but a summary of ideas trie
 * alternating between a number of pre-allocated pages. This might help by reducing the likelihood that the JIT process touches memory that is cached for execution, however, this is fairly expensive in terms of cache usage
 * trying to clear the instruction cache by jumping across a large number of cachelines. Probably thrases the cache however
 * seeing whether applying a fence or serializing operation between writing and executing the code, makes any difference
+* writing to and executing from different virtual addresses which map to the same physical page
 
 Note that the JIT routine itself writes out instructions one-by-one, and doesn’t attempt to batch multiple instructions into a single write.
