@@ -330,7 +330,46 @@ static void jit_clr_scatter(void* dst) {
 	write_code(dst, 0);
 	((jitfunc_t)dst)();
 }
+#endif
 
+// clear memory using SSE nt writes
+static void jit_clr_sse2_nt(void* dst) {
+	for(int i=0; i<((CODE_SIZE+15)&~15); i+=16)
+		_mm_stream_si128((__m128i*)(dst + i), _mm_setzero_si128());
+	write_code(dst, 0);
+	((jitfunc_t)dst)();
+}
+// as above, but only 1 write per cacheline
+static void jit_clr_sse2_1nt(void* dst) {
+	for(int i=0; i<((CODE_SIZE+15)&~15); i+=64)
+		_mm_stream_si128((__m128i*)(dst + i), _mm_setzero_si128());
+	write_code(dst, 0);
+	((jitfunc_t)dst)();
+}
+// 256-bit versions of above
+#ifdef __AVX__
+static void jit_clr_avx_nt(void* dst) {
+	for(int i=0; i<((CODE_SIZE+31)&~31); i+=32)
+		_mm256_stream_si256((__m256i*)(dst + i), _mm256_setzero_si256());
+	write_code(dst, 0);
+	((jitfunc_t)dst)();
+}
+static void jit_clr_avx_1nt(void* dst) {
+	for(int i=0; i<((CODE_SIZE+31)&~31); i+=64)
+		_mm256_stream_si256((__m256i*)(dst + i), _mm256_setzero_si256());
+	write_code(dst, 0);
+	((jitfunc_t)dst)();
+}
+#endif
+
+#ifdef __AVX512F__
+// clear memory using AVX512 (full cacheline) nt writes
+static void jit_clr_avx3_nt(void* dst) {
+	for(int i=0; i<((CODE_SIZE+63)&~63); i+=64)
+		_mm512_stream_si512(dst + i, _mm512_setzero_si512());
+	write_code(dst, 0);
+	((jitfunc_t)dst)();
+}
 #endif
 
 // clear JIT memory then write in reverse
@@ -589,6 +628,20 @@ static void jit_jmp32k_unalign(void* dst) {
 	write_code(dst, 0);
 	((jitfunc_t)dst)();
 }
+// 64k versions of above
+extern void jmp64k(void);
+static void jit_jmp64k(void* dst) {
+	jmp64k();
+	write_code(dst, 0);
+	((jitfunc_t)dst)();
+}
+extern void jmp64k_u(void);
+static void jit_jmp64k_unalign(void* dst) {
+	jmp64k_u();
+	write_code(dst, 0);
+	((jitfunc_t)dst)();
+}
+
 
 // does fencing do anything?
 static void jit_mfence(void* dst) {
@@ -694,6 +747,15 @@ int main(void) {
 		#ifdef __AVX512F__
 		DO_TIME_TEST(jit_clr_scatter, dst[0]);
 		#endif
+		DO_TIME_TEST(jit_clr_sse2_nt, dst[0]);
+		DO_TIME_TEST(jit_clr_sse2_1nt, dst[0]);
+		#ifdef __AVX__
+		DO_TIME_TEST(jit_clr_avx_nt, dst[0]);
+		DO_TIME_TEST(jit_clr_avx_1nt, dst[0]);
+		#endif
+		#ifdef __AVX512F__
+		DO_TIME_TEST(jit_clr_avx3_nt, dst[0]);
+		#endif
 		DO_TIME_TEST(jit_clr_reverse, dst[0]);
 		DO_TIME_TEST(jit_clr_1byte_rev, dst[0]);
 		DO_TIME_TEST(jit_clr_2byte_rev, dst[0]);
@@ -731,6 +793,8 @@ int main(void) {
 		DO_TIME_TEST(jit_2region_clr, dst);
 		DO_TIME_TEST(jit_jmp32k, dst[0]);
 		DO_TIME_TEST(jit_jmp32k_unalign, dst[0]);
+		DO_TIME_TEST(jit_jmp64k, dst[0]);
+		DO_TIME_TEST(jit_jmp64k_unalign, dst[0]);
 		DO_TIME_TEST(jit_mfence, dst[0]);
 		DO_TIME_TEST(jit_serialize, dst[0]);
 		DO_TIME_TEST(jit_dual_mapping, &wx_pair);
