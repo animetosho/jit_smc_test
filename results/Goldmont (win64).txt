@@ -1,0 +1,39 @@
+           jit_plain    2129200 rdtsc counts
+            jit_only     604886 rdtsc counts
+         jit_reverse    1780083 rdtsc counts
+          jit_memcpy    1642985 rdtsc counts
+     jit_memcpy_sse2    1646420 rdtsc counts
+  jit_memcpy_sse2_nt    1350874 rdtsc counts
+ jit_memcpy_sse2_rev    1709165 rdtsc counts
+             jit_clr    1815808 rdtsc counts
+         jit_clr_ret    1680336 rdtsc counts
+       jit_clr_1byte    1812622 rdtsc counts
+       jit_clr_2byte    1832535 rdtsc counts
+     jit_clr_reverse    1674010 rdtsc counts
+   jit_clr_1byte_rev    1757336 rdtsc counts
+   jit_clr_2byte_rev    1841617 rdtsc counts
+         jit_clflush    2683476 rdtsc counts
+   jit_clflush_after    2238857 rdtsc counts
+      jit_clflushopt    1379758 rdtsc counts
+jit_clflushopt_after    2334240 rdtsc counts
+       jit_prefetchw    2087644 rdtsc counts
+      jit_prefetcht1    2070332 rdtsc counts
+jit_prefetcht1_after    2057537 rdtsc counts
+             jit_ud2    2287216 rdtsc counts
+         jit_ud2_clr    1902365 rdtsc counts
+   jit_ud2_clr_1byte    2041431 rdtsc counts
+         jit_2region    2208306 rdtsc counts
+         jit_4region    2173579 rdtsc counts
+         jit_8region    2122399 rdtsc counts
+        jit_16region    2131001 rdtsc counts
+        jit_32region    2188673 rdtsc counts
+        jit_64region    2069027 rdtsc counts
+   jit_2region_flush    2766382 rdtsc counts
+jit_2region_flushopt    1502286 rdtsc counts
+     jit_2region_clr    2030948 rdtsc counts
+          jit_jmp32k    5001121 rdtsc counts
+  jit_jmp32k_unalign    4210458 rdtsc counts
+          jit_mfence    2059725 rdtsc counts
+       jit_serialize    3829521 rdtsc counts
+    jit_dual_mapping    3802869 rdtsc counts
+         jit_realloc   10213498 rdtsc counts

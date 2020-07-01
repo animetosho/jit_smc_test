@@ -1,0 +1,46 @@
+           jit_plain    3417622 rdtsc counts
+            jit_only    1072746 rdtsc counts
+         jit_reverse    2635772 rdtsc counts
+          jit_memcpy    2852202 rdtsc counts
+     jit_memcpy_sse2    3089122 rdtsc counts
+  jit_memcpy_sse2_nt    2618098 rdtsc counts
+      jit_memcpy_avx    3303720 rdtsc counts
+   jit_memcpy_avx_nt    4098232 rdtsc counts
+     jit_memcpy_avx3    2860484 rdtsc counts
+  jit_memcpy_avx3_nt    4456430 rdtsc counts
+ jit_memcpy_sse2_rev    3524924 rdtsc counts
+  jit_memcpy_avx_rev    3281778 rdtsc counts
+ jit_memcpy_avx3_rev    3152292 rdtsc counts
+             jit_clr    2302470 rdtsc counts
+         jit_clr_ret    2331798 rdtsc counts
+       jit_clr_1byte    2054428 rdtsc counts
+       jit_clr_2byte    2089660 rdtsc counts
+     jit_clr_scatter    2336564 rdtsc counts
+     jit_clr_reverse    2348482 rdtsc counts
+   jit_clr_1byte_rev    1904174 rdtsc counts
+   jit_clr_2byte_rev    1907770 rdtsc counts
+         jit_clflush    5668640 rdtsc counts
+   jit_clflush_after    6117464 rdtsc counts
+      jit_clflushopt    2443518 rdtsc counts
+jit_clflushopt_after    4613380 rdtsc counts
+       jit_prefetchw    3175214 rdtsc counts
+      jit_prefetcht1    2985800 rdtsc counts
+jit_prefetcht1_after    2904722 rdtsc counts
+             jit_ud2    3203998 rdtsc counts
+         jit_ud2_clr    2494238 rdtsc counts
+   jit_ud2_clr_1byte    2333936 rdtsc counts
+         jit_2region    3101018 rdtsc counts
+         jit_4region    3133026 rdtsc counts
+         jit_8region    3188536 rdtsc counts
+        jit_16region    1716388 rdtsc counts
+        jit_32region    1572822 rdtsc counts
+        jit_64region    1706014 rdtsc counts
+   jit_2region_flush    5900334 rdtsc counts
+jit_2region_flushopt    2126384 rdtsc counts
+     jit_2region_clr    2771444 rdtsc counts
+          jit_jmp32k    2343090 rdtsc counts
+  jit_jmp32k_unalign    2276398 rdtsc counts
+          jit_mfence    3399630 rdtsc counts
+       jit_serialize    3148166 rdtsc counts
+    jit_dual_mapping    3285374 rdtsc counts
+         jit_realloc   19580014 rdtsc counts
