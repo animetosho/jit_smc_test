@@ -55,7 +55,7 @@ The results, listed below, vary significantly across processor micro-architectur
 * `CLFLUSHOPT` is effective on Skylake/X ([`jit_clflushopt`](https://github.com/animetosho/jit_smc_test/blob/62b4beb2120e1c3403e7c0f904c0c160434f4160/test.c#L525-L533)). Pre-Skylake, copying is also effective ([`jit_memcpy*`](https://github.com/animetosho/jit_smc_test/blob/62b4beb2120e1c3403e7c0f904c0c160434f4160/test.c#L209-L326))
 * Clearing the instruction cache with jumps touching all the cachelines, seems to also be effective on Haswell and later ([`jit_jmp32k_unalign`](https://github.com/animetosho/jit_smc_test/blob/62b4beb2120e1c3403e7c0f904c0c160434f4160/test.c#L701-L707)). This may affect performance of other code as it effectively flushes out the instruction cache
 
-Raw results: [Nehalem](results/Nehalem.txt), [Sandy Bridge](results/Sandy Bridge.txt), [Ivy Bridge](results/Ivy Bridge (win64).txt), [Haswell](results/Haswell.txt), [Broadwell](results/Broadwell (xen).txt), [Skylake](results/Skylake.txt), [Skylake-X](results/Skylake-X (win64).txt)
+Raw results: [Nehalem](results/Nehalem.txt), [Sandy Bridge](<results/Sandy Bridge.txt>), [Ivy Bridge](<results/Ivy Bridge (win64).txt>), [Haswell](results/Haswell.txt), [Broadwell](<results/Broadwell (xen).txt>), [Skylake](results/Skylake.txt), [Skylake-X](<results/Skylake-X (win64).txt>)
 
 ### Intel Atom
 
@@ -64,7 +64,7 @@ Raw results: [Nehalem](results/Nehalem.txt), [Sandy Bridge](results/Sandy Bridge
   * Clearing the region seems effective too. Only one byte per cacheline is sufficient ([`jit_clr_1byte`](https://github.com/animetosho/jit_smc_test/blob/62b4beb2120e1c3403e7c0f904c0c160434f4160/test.c#L373-L381))
   * Issuing `CLFLUSH` ([`jit_clflush`](https://github.com/animetosho/jit_smc_test/blob/62b4beb2120e1c3403e7c0f904c0c160434f4160/test.c#L507-L515)) or `PREFETCHW` ([`jit_prefetchw`](https://github.com/animetosho/jit_smc_test/blob/62b4beb2120e1c3403e7c0f904c0c160434f4160/test.c#L543-L552)) over the region also seems to work
     <small>(I thought Silvermont didn’t support `PREFETCHW` instruction added in Broadwell, but as it turns out, it supports the `PREFETCHW` instruction from 3DNow!)</small>
-* Goldmont ([raw result](results/Goldmont (win64).txt))
+* Goldmont ([raw result](<results/Goldmont (win64).txt>))
   * Copying ([`jit_memcpy*`](https://github.com/animetosho/jit_smc_test/blob/62b4beb2120e1c3403e7c0f904c0c160434f4160/test.c#L209-L326)) and clearing ([`jit_clr*`](https://github.com/animetosho/jit_smc_test/blob/62b4beb2120e1c3403e7c0f904c0c160434f4160/test.c#L329-L484)) are both effective
   * The most effective techniques appear to be copying with non-temporal writes ([`jit_memcpy_sse2_nt`](https://github.com/animetosho/jit_smc_test/blob/62b4beb2120e1c3403e7c0f904c0c160434f4160/test.c#L262-L268)), clearing the memory using non-temporal writes ([`jit_clr_sse2_nt`](https://github.com/animetosho/jit_smc_test/blob/62b4beb2120e1c3403e7c0f904c0c160434f4160/test.c#L412-L418)), or issuing `CLFLUSHOPT` over the executable region before writing ([`jit_clflushopt`](https://github.com/animetosho/jit_smc_test/blob/62b4beb2120e1c3403e7c0f904c0c160434f4160/test.c#L525-L533))
 
@@ -76,13 +76,13 @@ Raw results: [Nehalem](results/Nehalem.txt), [Sandy Bridge](results/Sandy Bridge
 
 ### AMD Family 17h
 
-* Zen1 ([raw result](results/Zen1 (VM).txt))
+* Zen1 ([raw result](<results/Zen1 (VM).txt>))
   * Copying seems to be the only effective method ([`jit_memcpy*`](https://github.com/animetosho/jit_smc_test/blob/62b4beb2120e1c3403e7c0f904c0c160434f4160/test.c#L209-L326)). Unlike other CPUs here, non-temporal writes perform worse
   * Unlike on Intel Core CPUs, where overwriting the instruction code seems to invalidate the data from the instruction cache, it seems like Zen1 maintains some sync between the two. This means that repeatedly overwriting the same code, that exists in instruction cache, can have a slowdown effect, even if the code is never executed later
 
 ### AMD Family 16h
 
-* Jaguar ([raw result](results/Jaguar (win64).txt))
+* Jaguar ([raw result](<results/Jaguar (win64).txt>))
   * None of the techniques tested seem to improve upon the plain case
 
 ### AMD Family 15h
