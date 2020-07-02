@@ -8,6 +8,9 @@
 // compile with `cc -g -std=gnu99 -O3 -march=native -o test test.c jump.s`
 // or on systems which need librt: `cc -g -std=gnu99 -O3 -march=native -o test test.c jump.s -lrt`
 
+// static compile: `cc -s -static -std=gnu99 -O3 -march=<arch> -o test test.c jump.s`
+// or linux: `cc -s -static -std=gnu99 -O3 -march=<arch> -o test test.c jump.s -lrt -pthread -Wl,--whole-archive -lpthread -Wl,--no-whole-archive`
+
 /**************************************/
 // boiler plate stuff
 
@@ -188,7 +191,12 @@ static void jit_only_init() {
 	write_code(static_code, 0);
 }
 static void jit_only(void* dst) {
-	write_code(dst, 0);
+	(void)dst;
+	// on Zen1, it seems that writing to 'dst' triggers SMC behaviour, even if it's not being executed, so we write to a separate location instead
+	ALIGN_TO(64, char* tmp[CODE_SIZE]);
+	write_code(tmp, 0);
+	volatile char unused = ((char*)tmp)[CODE_SIZE-1]; // prevent compiler eliminating `write_code`
+	(void)unused;
 	((jitfunc_t)static_code)();
 }
 
@@ -205,6 +213,45 @@ static void jit_memcpy(void* dst) {
 	memcpy(dst, tmp, CODE_SIZE);
 	((jitfunc_t)dst)();
 }
+#ifdef __GNUC__
+// explicitly copy using REP MOVS
+static void jit_memcpy_movsb(void* dst) {
+	ALIGN_TO(64, char* tmp[CODE_SIZE]);
+	write_code(tmp, 0);
+	
+	void* tmpDst = dst;
+	void* tmpSrc = tmp;
+	size_t size = CODE_SIZE;
+	asm volatile(
+		"rep movsb\n"
+		: "+c"(size), "+S"(tmpSrc), "+D"(tmpDst)
+		: 
+		: "memory"
+	);
+	
+	((jitfunc_t)dst)();
+}
+# ifdef __x86_64__
+static void jit_memcpy_movsq(void* dst) {
+	ALIGN_TO(64, char* tmp[CODE_SIZE]);
+	write_code(tmp, 0);
+	
+	void* tmpDst = dst;
+	void* tmpSrc = tmp;
+	size_t size = (CODE_SIZE+7)>>3;
+	asm volatile(
+		"rep movsq\n"
+		: "+c"(size), "+S"(tmpSrc), "+D"(tmpDst)
+		: 
+		: "memory"
+	);
+	
+	((jitfunc_t)dst)();
+}
+# endif
+#endif
+
+// copies using vector instructions (though compiler sometimes turns these into memcpy calls anyway)
 static void jit_memcpy_sse2(void* dst) {
 	ALIGN_TO(16, char* tmp[CODE_SIZE]);
 	write_code(tmp, 0);
@@ -292,6 +339,36 @@ static void jit_clr_ret(void* dst) {
 	write_code(dst, 0);
 	((jitfunc_t)dst)();
 }
+
+#ifdef __GNUC__
+// explicitly clear memory using REP STOS
+static void jit_clr_stosb(void* dst) {
+	void* tmpDst = dst;
+	size_t size = CODE_SIZE;
+	asm volatile(
+		"rep stosb\n"
+		: "+c"(size), "+D"(tmpDst)
+		: "a"(0)
+		: "memory"
+	);
+	write_code(dst, 0);
+	((jitfunc_t)dst)();
+}
+# ifdef __x86_64__
+static void jit_clr_stosq(void* dst) {
+	void* tmpDst = dst;
+	size_t size = (CODE_SIZE+7)>>3;
+	asm volatile(
+		"rep stosq\n"
+		: "+c"(size), "+D"(tmpDst)
+		: "a"(0)
+		: "memory"
+	);
+	write_code(dst, 0);
+	((jitfunc_t)dst)();
+}
+# endif
+#endif
 
 // clear first byte per cacheline before writing
 static void jit_clr_1byte(void* dst) {
@@ -663,6 +740,7 @@ static void jit_serialize(void* dst) {
 	int id[4];
 	_cpuid(id, 1);
 	volatile int unused = id[0];
+	(void)unused;
 	((jitfunc_t)dst)();
 }
 
@@ -674,6 +752,7 @@ static void jit_dual_mapping(void* dst) {
 	int id[4];
 	_cpuid(id, 1);
 	volatile int unused = id[0];
+	(void)unused;
 	
 	((jitfunc_t)pair->xmem)();
 }
@@ -723,6 +802,12 @@ int main(void) {
 		DO_TIME_TEST(jit_only, dst[0]);
 		DO_TIME_TEST(jit_reverse, dst[0]);
 		DO_TIME_TEST(jit_memcpy, dst[0]);
+		#ifdef __GNUC__
+		DO_TIME_TEST(jit_memcpy_movsb, dst[0]);
+		# ifdef __x86_64__
+		DO_TIME_TEST(jit_memcpy_movsq, dst[0]);
+		# endif
+		#endif
 		DO_TIME_TEST(jit_memcpy_sse2, dst[0]);
 		DO_TIME_TEST(jit_memcpy_sse2_nt, dst[0]);
 		#ifdef __AVX__
@@ -742,6 +827,12 @@ int main(void) {
 		#endif
 		DO_TIME_TEST(jit_clr, dst[0]);
 		DO_TIME_TEST(jit_clr_ret, dst[0]);
+		#ifdef __GNUC__
+		DO_TIME_TEST(jit_clr_stosb, dst[0]);
+		# ifdef __x86_64__
+		DO_TIME_TEST(jit_clr_stosq, dst[0]);
+		# endif
+		#endif
 		DO_TIME_TEST(jit_clr_1byte, dst[0]);
 		DO_TIME_TEST(jit_clr_2byte, dst[0]);
 		#ifdef __AVX512F__
