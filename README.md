@@ -14,7 +14,7 @@ end loop
 This is essentially a JIT where the code is only used once, before being overwritten and used again.
 <small>(Note, this code will not work on an OS which enforces [W^X](https://en.wikipedia.org/wiki/W%5EX) security. Currently, the most widely used OSes on x86 do not enforce W^X, hence the above technique is viable on most machines. For this investigation, I will assume no W^X is being enforced)</small>
 
-x86 processors fully support [self-modifying code](https://en.wikipedia.org/wiki/Self-modifying_code) (SMC), without needing the program to signal anything to the processor (e.g. no flush instruction necessary), which means that x86 processors need to automatically detect writes to instruction data and handle them immediately.
+x86 processors fully support [self-modifying code](https://en.wikipedia.org/wiki/Self-modifying_code) (SMC), and have not required explicit clearing of prefetch since the 80486.  Prior to the Pentium series, instructions modified that were already within the prefetch would not be realised, and an explicit `JMP` to the modified code was required.  From Pentium onwards, there is no need for the program to signal anything to the processor (i.e. no flush instruction necessary).
 
 The above code, although not really a true SMC scenario, is often detected as such, due to the JIT code residing in instruction cache when it needs to be written to. Such writes usually involve invalidating caches and flushing pipelines, which causes severe performance penalties.
 
