@@ -50,12 +50,13 @@ The results, listed below, vary significantly across processor micro-architectur
 
 ### Intel Core
 
-* Alternating between a number of regions, enough to exceed L1 cache size, appears to be the most effective technique ([`jit_16region`](https://github.com/animetosho/jit_smc_test/blob/62b4beb2120e1c3403e7c0f904c0c160434f4160/test.c#L633-L639)), however this could affect the performance of other code.
-* Clearing the target before writing code, is second most effective (slightly worse than above), particularly if you just clear one byte per cacheline ([`jit_clr_1byte`](https://github.com/animetosho/jit_smc_test/blob/62b4beb2120e1c3403e7c0f904c0c160434f4160/test.c#L373-L381))
-* `CLFLUSHOPT` is effective on Skylake/X ([`jit_clflushopt`](https://github.com/animetosho/jit_smc_test/blob/62b4beb2120e1c3403e7c0f904c0c160434f4160/test.c#L525-L533)). Pre-Skylake, copying is also effective ([`jit_memcpy*`](https://github.com/animetosho/jit_smc_test/blob/62b4beb2120e1c3403e7c0f904c0c160434f4160/test.c#L209-L326))
+* Alternating between a number of regions, enough to exceed L1 cache size, appears to be the most effective technique ([`jit_16region`](https://github.com/animetosho/jit_smc_test/blob/62b4beb2120e1c3403e7c0f904c0c160434f4160/test.c#L633-L639)), however this could affect the performance of other code
+* Clearing the target before writing code, is quite effective, and on pre Sunny Cove processors, clearing one byte per cacheline ([`jit_clr_1byte`](https://github.com/animetosho/jit_smc_test/blob/62b4beb2120e1c3403e7c0f904c0c160434f4160/test.c#L373-L381)) is the second most effective technique (slightly worse than above). On Sunny Cove, it seems that clearing the code using a 512-bit `VPSCATERDD` instruction ([`jit_clr_scatter`](https://github.com/animetosho/jit_smc_test/blob/149aaeb17aa240f318de59d978776d8e67c0e13d/test.c#L396-L410)) is the second most effective technique
+* `CLFLUSHOPT` ([`jit_clflushopt`](https://github.com/animetosho/jit_smc_test/blob/62b4beb2120e1c3403e7c0f904c0c160434f4160/test.c#L525-L533)) is effective on CPUs that support it (Skylake and later). Copying is also effective ([`jit_memcpy*`](https://github.com/animetosho/jit_smc_test/blob/62b4beb2120e1c3403e7c0f904c0c160434f4160/test.c#L209-L326))
+* On Sunny Cove, in addition to the `VPSCATERDD` clearing technique mentioned above, copying with 128-bit non-temporal writes ([jit_memcpy_sse2_nt](https://github.com/animetosho/jit_smc_test/blob/149aaeb17aa240f318de59d978776d8e67c0e13d/test.c#L262-L268)), and issuing `CLFLUSHOPT` seem to be roughly as effective. 256-bit and 512-bit non-temporal copies appear to perform worse than 128-bit
 * Clearing the instruction cache with jumps touching all the cachelines, seems to also be effective on Haswell and later ([`jit_jmp32k_unalign`](https://github.com/animetosho/jit_smc_test/blob/62b4beb2120e1c3403e7c0f904c0c160434f4160/test.c#L701-L707)). This may affect performance of other code as it effectively flushes out the instruction cache
 
-Raw results: [Nehalem](results/Nehalem.txt), [Sandy Bridge](<results/Sandy Bridge.txt>), [Ivy Bridge](<results/Ivy Bridge (win64).txt>), [Haswell](results/Haswell.txt), [Broadwell](<results/Broadwell (xen).txt>), [Skylake](results/Skylake.txt), [Skylake-X](<results/Skylake-X (win64).txt>)
+Raw results: [Nehalem](results/Nehalem.txt), [Sandy Bridge](<results/Sandy Bridge.txt>), [Ivy Bridge](<results/Ivy Bridge (win64).txt>), [Haswell](results/Haswell.txt), [Broadwell](<results/Broadwell (xen).txt>), [Skylake](results/Skylake.txt), [Skylake-X](<results/Skylake-X (win64).txt>), [Sunny Cove](<results/Sunny Cove (wsl2).txt>)
 
 ### Intel Atom
 
@@ -116,8 +117,10 @@ From the results I have (and speculation on my part for results I don’t have) 
 
 * If CPU is Intel Core (Nehalem or later):
   * Alternate between areas of memory (enough to be larger than L1 cache size), i.e. JIT to location 1, execute location 1, JIT to location 2, execute location 2 etc, and loop around ([`jit_16region`](https://github.com/animetosho/jit_smc_test/blob/62b4beb2120e1c3403e7c0f904c0c160434f4160/test.c#L633-L639))
-  * If the above is not possible, or the cache hit is unacceptable, clear 1 byte per 64-byte cacheline in the area to be written to, before actually writing instructions ([`jit_clr_1byte`](https://github.com/animetosho/jit_smc_test/blob/62b4beb2120e1c3403e7c0f904c0c160434f4160/test.c#L373-L381))
-* Else if CPU is Intel Atom, Intel Core2, AMD Family 15h or AMD K10:
+  * If the above is not possible, or the cache hit is unacceptable:
+    * if CPU is pre Sunny Cove (Nehalem through to Cannonlake): clear 1 byte per 64-byte cacheline in the area to be written to, before actually writing instructions ([`jit_clr_1byte`](https://github.com/animetosho/jit_smc_test/blob/62b4beb2120e1c3403e7c0f904c0c160434f4160/test.c#L373-L381))
+    * if CPU is Sunny Cove or later: follow the suggestion in the next point (copy code via 128-bit non-temporal writes)
+* Else if CPU is Intel Atom, Intel Core2, Intel Sunny Cove (or later), AMD Family 15h or AMD K10:
   * Write code to a temporary location, then copy to the destination using [non-temporal writes](https://stackoverflow.com/a/37092) ([`jit_memcpy_sse2_nt`](https://github.com/animetosho/jit_smc_test/blob/62b4beb2120e1c3403e7c0f904c0c160434f4160/test.c#L262-L268)). SSE1/2 writes are sufficient, as none of these CPUs have 256-bit load/store ports
 * Else if CPU is AMD Family 17h, 18h or newer AMD:
   * Write code to a temporary location, then copy to the destination (`REP MOVS` seems to be optimal ([`jit_memcpy_movsb`](https://github.com/animetosho/jit_smc_test/blob/62b4beb2120e1c3403e7c0f904c0c160434f4160/test.c#L218-L233)), but `memcpy` probably works fine too ([`jit_memcpy`](https://github.com/animetosho/jit_smc_test/blob/62b4beb2120e1c3403e7c0f904c0c160434f4160/test.c#L209-L215)))
@@ -143,3 +146,6 @@ Note that you may need to also add `-lrt` to the end, on some Linux distros.
 
 I’ve noticed significant variability in results when running the test. The code does try to cater for this, by running multiple trials and taking the fastest run, but it may be beneficial to set the CPU governor/power profile to Performance, and disabling turbo boost, before running the test. Note that I haven’t done this for any of the results though.
 
+## Thanks
+
+Thanks to posters who replied to [this RealWorldTechnologies forum thread](https://www.realworldtech.com/forum/?threadid=192834&curpostid=192834) for their assistance.
